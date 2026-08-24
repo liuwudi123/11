@@ -214,78 +214,69 @@ function openEditor(index) {
   updateEditorVisibility(data);
 }
 
-// 自定义时间滚轮选择器（时/分/秒），iOS 上也能精确到秒，无第三方依赖
+// 影像时间组件：日期用原生 date，时分用原生 time(到分)，秒用自定义滚轮(0-59)
+// iOS 上 time 控件不显秒，所以把"秒"单独拆成滚轮，年月日时分仍用系统原生体验
 function createSecondPicker() {
-  let current = { h: 0, m: 0, s: 0 };
+  let sec = 0;
   const el = document.createElement('div');
-  el.className = 'relative w-1/2';
+  el.className = 'flex-1 flex flex-col gap-1';
 
-  const display = document.createElement('input');
-  display.type = 'text';
-  display.readOnly = true;
-  display.placeholder = 'HH:MM:SS';
-  display.className = 'w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+  const row = document.createElement('div');
+  row.className = 'flex gap-2';
 
+  const timeInput = document.createElement('input');
+  timeInput.type = 'time';
+  timeInput.step = '1';
+  timeInput.dataset.part = 'time';
+  timeInput.className = 'w-2/3 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+  const secBtn = document.createElement('button');
+  secBtn.type = 'button';
+  secBtn.dataset.part = 'sec';
+  secBtn.className = 'w-1/3 rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500';
+  secBtn.textContent = '秒 00';
+
+  row.appendChild(timeInput);
+  row.appendChild(secBtn);
+  el.appendChild(row);
+
+  // 秒滚轮面板
   const panel = document.createElement('div');
-  panel.className = 'hidden absolute z-50 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-56';
+  panel.className = 'hidden mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-2 w-24 max-h-40 overflow-y-auto snap-y';
+  panel.style.scrollSnapType = 'y mandatory';
   panel.style.touchAction = 'none';
-
-  function makeColumn(max, onChange) {
-    const col = document.createElement('div');
-    col.className = 'flex-1 h-32 overflow-y-auto text-center text-sm snap-y';
-    col.style.scrollSnapType = 'y mandatory';
-    for (let i = 0; i <= max; i++) {
-      const item = document.createElement('div');
-      item.className = 'h-8 flex items-center justify-center snap-center rounded';
-      item.textContent = String(i).padStart(2, '0');
-      item.dataset.val = i;
-      col.appendChild(item);
-    }
-    col.addEventListener('scroll', () => {
-      const idx = Math.round(col.scrollTop / 32);
-      onChange(Math.min(max, Math.max(0, idx)));
+  for (let i = 0; i <= 59; i++) {
+    const item = document.createElement('div');
+    item.className = 'h-8 flex items-center justify-center snap-center rounded text-sm cursor-pointer hover:bg-blue-50';
+    item.textContent = String(i).padStart(2, '0');
+    item.dataset.val = i;
+    item.addEventListener('click', () => {
+      sec = i;
+      secBtn.textContent = '秒 ' + String(i).padStart(2, '0');
+      panel.classList.add('hidden');
+      if (el._changeCb) el._changeCb();
     });
-    return col;
+    panel.appendChild(item);
   }
-
-  const hCol = makeColumn(23, v => current.h = v);
-  const mCol = makeColumn(59, v => current.m = v);
-  const sCol = makeColumn(59, v => current.s = v);
-
-  const cols = document.createElement('div');
-  cols.className = 'flex gap-1';
-  cols.appendChild(hCol); cols.appendChild(mCol); cols.appendChild(sCol);
-  panel.appendChild(cols);
-
-  const done = document.createElement('button');
-  done.type = 'button';
-  done.textContent = '完成';
-  done.className = 'mt-2 w-full px-3 py-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg';
-  panel.appendChild(done);
-
-  el.appendChild(display);
   el.appendChild(panel);
 
-  function syncDisplay() {
-    display.value = `${String(current.h).padStart(2,'0')}:${String(current.m).padStart(2,'0')}:${String(current.s).padStart(2,'0')}`;
-  }
-  function scrollCol(col, val) { col.scrollTop = val * 32; }
-
-  display.addEventListener('focus', () => panel.classList.remove('hidden'));
-  display.addEventListener('click', () => panel.classList.remove('hidden'));
-  done.addEventListener('click', () => { syncDisplay(); panel.classList.add('hidden'); if (el._changeCb) el._changeCb(); });
+  secBtn.addEventListener('click', () => panel.classList.toggle('hidden'));
 
   return {
     el,
-    getValue: () => display.value,
-    setValue: (v) => {
-      if (!v) { current = { h:0, m:0, s:0 }; syncDisplay(); return; }
-      const parts = v.split(':').map(Number);
-      current = { h: parts[0]||0, m: parts[1]||0, s: parts[2]||0 };
-      scrollCol(hCol, current.h); scrollCol(mCol, current.m); scrollCol(sCol, current.s);
-      syncDisplay();
+    _timeInput: timeInput,
+    getValue: () => {
+      const tm = timeInput.value || '00:00';
+      return `${tm}:${String(sec).padStart(2, '0')}`;
     },
-    _onChange: (cb) => { el._changeCb = cb; }
+    setValue: (v) => {
+      if (!v) { timeInput.value = ''; sec = 0; secBtn.textContent = '秒 00'; return; }
+      const parts = v.split(':').map(Number);
+      timeInput.value = `${String(parts[0]||0).padStart(2,'0')}:${String(parts[1]||0).padStart(2,'0')}`;
+      sec = parts[2] || 0;
+      secBtn.textContent = '秒 ' + String(sec).padStart(2, '0');
+    },
+    _onChange: (cb) => { el._changeCb = cb; timeInput.addEventListener('change', cb); timeInput.addEventListener('input', cb); }
   };
 }
 
@@ -329,10 +320,11 @@ function createEditorField(f, value) {
       const picker = createSecondPicker();
       timeInput = picker.el;
       timeInput.dataset.part = 'time';
+      timeInput.dataset.timePicker = '1';
       wrap.appendChild(dateInput);
       wrap.appendChild(timeInput);
       input = wrap;
-      // 把 setValue 挂到 timeInput 上，方便初始化
+      // 把 setValue/getValue 挂到 timeInput 上，方便初始化与取值
       timeInput._setValue = picker.setValue;
       timeInput._getValue = picker.getValue;
     } else {
@@ -386,9 +378,9 @@ function collectEditorData() {
     const f = FIELD_BY_KEY[k];
     if (f && f.type === 'datetime' && k === 'brain_imaging_ts') {
       const dateEl = w.querySelector('input[data-part="date"]');
-      const timeEl = w.querySelector('input[data-part="time"]');
+      const pickerEl = w.querySelector('[data-time-picker]');
       const dt = dateEl ? dateEl.value : '';
-      let tm = timeEl && timeEl._getValue ? timeEl._getValue() : (timeEl ? timeEl.value : '');
+      let tm = pickerEl && pickerEl._getValue ? pickerEl._getValue() : '';
       if (tm && tm.split(':').length === 2) tm += ':00'; // 补秒
       d[k] = (dt && tm) ? `${dt}T${tm}` : (dt || tm || '');
     } else {
