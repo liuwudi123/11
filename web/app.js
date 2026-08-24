@@ -215,6 +215,7 @@ function createEditorField(f, value) {
   wrapper.appendChild(label);
 
   let input;
+  let dateInput, timeInput;
   if (f.type === 'select') {
     input = document.createElement('select');
     input.className = 'w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
@@ -236,11 +237,11 @@ function createEditorField(f, value) {
     // 拆成「日期」+「时间(含秒)」两个独立控件，避免 datetime-local 在手机上无法选秒
     const wrap = document.createElement('div');
     wrap.className = 'flex gap-2';
-    const dateInput = document.createElement('input');
+    dateInput = document.createElement('input');
     dateInput.type = 'date';
     dateInput.dataset.part = 'date';
     dateInput.className = 'w-1/2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
-    const timeInput = document.createElement('input');
+    timeInput = document.createElement('input');
     timeInput.type = 'time';
     timeInput.step = '1'; // 启用秒
     timeInput.dataset.part = 'time';
