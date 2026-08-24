@@ -242,25 +242,58 @@ function createSecondPicker() {
 
   // 秒滚轮面板
   const panel = document.createElement('div');
-  panel.className = 'hidden mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-2 w-24 max-h-40 overflow-y-auto snap-y';
+  panel.className = 'hidden relative mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-2 w-24 max-h-40 overflow-y-auto snap-y';
   panel.style.scrollSnapType = 'y mandatory';
   panel.style.touchAction = 'none';
+
+  // 中间固定高亮条，指示当前选中项
+  const indicator = document.createElement('div');
+  indicator.className = 'pointer-events-none absolute left-2 right-2 rounded-lg bg-blue-100 border border-blue-300';
+  indicator.style.height = '32px';
+  indicator.style.top = '64px'; // 面板高160，居中(160-32)/2
+  panel.appendChild(indicator);
+
+  const items = [];
   for (let i = 0; i <= 59; i++) {
     const item = document.createElement('div');
-    item.className = 'h-8 flex items-center justify-center snap-center rounded text-sm cursor-pointer hover:bg-blue-50';
+    item.className = 'h-8 flex items-center justify-center snap-center rounded text-sm cursor-pointer';
     item.textContent = String(i).padStart(2, '0');
     item.dataset.val = i;
     item.addEventListener('click', () => {
       sec = i;
       secBtn.textContent = '秒 ' + String(i).padStart(2, '0');
+      highlight();
       panel.classList.add('hidden');
       if (el._changeCb) el._changeCb();
     });
     panel.appendChild(item);
+    items.push(item);
   }
+
+  function highlight() {
+    items.forEach((it, idx) => {
+      it.classList.toggle('font-semibold', idx === sec);
+      it.classList.toggle('text-blue-600', idx === sec);
+    });
+  }
+  function centerTo(secVal) {
+    panel.scrollTop = secVal * 32 - 64; // 让选中项对齐中间高亮条
+    highlight();
+  }
+  panel.addEventListener('scroll', () => {
+    const idx = Math.round(panel.scrollTop / 32);
+    sec = Math.min(59, Math.max(0, idx));
+    secBtn.textContent = '秒 ' + String(sec).padStart(2, '0');
+    highlight();
+  });
   el.appendChild(panel);
 
-  secBtn.addEventListener('click', () => panel.classList.toggle('hidden'));
+  secBtn.addEventListener('click', () => {
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+      centerTo(sec); // 展开时把当前秒滚到中间高亮条位置
+    }
+  });
 
   return {
     el,
@@ -270,11 +303,12 @@ function createSecondPicker() {
       return `${tm}:${String(sec).padStart(2, '0')}`;
     },
     setValue: (v) => {
-      if (!v) { timeInput.value = ''; sec = 0; secBtn.textContent = '秒 00'; return; }
+      if (!v) { timeInput.value = ''; sec = 0; secBtn.textContent = '秒 00'; highlight(); return; }
       const parts = v.split(':').map(Number);
       timeInput.value = `${String(parts[0]||0).padStart(2,'0')}:${String(parts[1]||0).padStart(2,'0')}`;
       sec = parts[2] || 0;
       secBtn.textContent = '秒 ' + String(sec).padStart(2, '0');
+      highlight();
     },
     _onChange: (cb) => { el._changeCb = cb; timeInput.addEventListener('change', cb); timeInput.addEventListener('input', cb); }
   };
