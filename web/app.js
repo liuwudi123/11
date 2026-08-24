@@ -243,27 +243,35 @@ function createEditorField(f, value) {
     if (f.min !== undefined) input.min = f.min;
     if (f.max !== undefined) input.max = f.max;
   } else if (f.type === 'datetime') {
-    // 拆成「日期」+「时间(含秒)」两个独立控件，避免 datetime-local 在手机上无法选秒
-    const wrap = document.createElement('div');
-    wrap.className = 'flex gap-2';
-    dateInput = document.createElement('input');
-    dateInput.type = 'date';
-    dateInput.dataset.part = 'date';
-    dateInput.className = 'w-1/2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
-    timeInput = document.createElement('input');
-    timeInput.type = 'time';
-    timeInput.step = '1'; // 启用秒
-    timeInput.dataset.part = 'time';
-    timeInput.className = 'w-1/2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
-    wrap.appendChild(dateInput);
-    wrap.appendChild(timeInput);
-    input = wrap;
+    if (f.key === 'brain_imaging_ts') {
+      // 仅影像时间需精确到秒，拆成「日期」+「时间(含秒)」两个独立控件，手机也能选秒
+      const wrap = document.createElement('div');
+      wrap.className = 'flex gap-2';
+      dateInput = document.createElement('input');
+      dateInput.type = 'date';
+      dateInput.dataset.part = 'date';
+      dateInput.className = 'w-1/2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+      timeInput = document.createElement('input');
+      timeInput.type = 'time';
+      timeInput.step = '1'; // 启用秒
+      timeInput.dataset.part = 'time';
+      timeInput.className = 'w-1/2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+      wrap.appendChild(dateInput);
+      wrap.appendChild(timeInput);
+      input = wrap;
+    } else {
+      // 其余时间字段恢复 datetime-local（电脑可选秒，手机到分钟，足够用）
+      input = document.createElement('input');
+      input.type = 'datetime-local';
+      input.step = '1';
+      input.className = 'w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+    }
   } else {
     input = document.createElement('input');
     input.type = 'text';
     input.className = 'w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
   }
-  if (f.type === 'datetime') {
+  if (f.type === 'datetime' && f.key === 'brain_imaging_ts') {
     // 把存储值 "YYYY-MM-DDTHH:MM:SS" 拆进两个控件
     if (value) {
       const [dt, tm] = String(value).split('T');
@@ -274,6 +282,12 @@ function createEditorField(f, value) {
       el.addEventListener('change', onFieldChange);
       el.addEventListener('input', onFieldChange);
     });
+  } else if (f.type === 'datetime') {
+    input.dataset.key = f.key;
+    input.value = value ?? '';
+    wrapper.appendChild(input);
+    input.addEventListener('change', onFieldChange);
+    input.addEventListener('input', onFieldChange);
   } else {
     input.dataset.key = f.key;
     input.value = value ?? '';
@@ -294,7 +308,7 @@ function collectEditorData() {
   document.querySelectorAll('#editor-fields .editor-field').forEach(w => {
     const k = w.dataset.key;
     const f = FIELD_BY_KEY[k];
-    if (f && f.type === 'datetime') {
+    if (f && f.type === 'datetime' && k === 'brain_imaging_ts') {
       const dateEl = w.querySelector('input[data-part="date"]');
       const timeEl = w.querySelector('input[data-part="time"]');
       const dt = dateEl ? dateEl.value : '';
