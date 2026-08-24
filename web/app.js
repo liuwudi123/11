@@ -147,24 +147,33 @@ function validateRecord(data) {
 // ===== 列表渲染 =====
 function renderList() {
   const tbody = document.getElementById('list-tbody');
+  const thead = document.getElementById('list-thead');
+  const headTr = document.createElement('tr');
+  headTr.className = 'bg-slate-50 text-slate-500 text-xs tracking-wide';
+  headTr.innerHTML = `<th class="px-3 py-3 font-medium sticky left-0 z-20 bg-slate-50 whitespace-nowrap border-r border-slate-200">操作</th>` +
+    LIST_COLUMNS.map(c => `<th class="px-4 py-3 font-medium whitespace-nowrap">${c.label}</th>`).join('');
+  thead.innerHTML = '';
+  thead.appendChild(headTr);
+
   tbody.innerHTML = '';
   if (records.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td colspan="${LIST_COLUMNS.length + 2}" class="px-4 py-8 text-center text-slate-400 text-sm">暂无记录，点击"新增记录"开始录入</td>`;
+    tr.innerHTML = `<td colspan="${LIST_COLUMNS.length + 1}" class="px-4 py-8 text-center text-slate-400 text-sm">暂无记录，点击"新增记录"开始录入</td>`;
     tbody.appendChild(tr);
   } else {
     records.forEach((rec, idx) => {
       const tr = document.createElement('tr');
       tr.className = 'border-t border-slate-100 hover:bg-slate-50';
       let html = '';
+      // 操作列固定最左，sticky 始终可见（手机不用滑动即可编辑/删除）
+      html += `<td class="px-3 py-3 sticky left-0 z-10 bg-white whitespace-nowrap border-r border-slate-100">
+        <button class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-2" data-edit="${idx}">编辑</button>
+        <button class="text-red-500 hover:text-red-700 text-sm font-medium" data-del="${idx}">删除</button>
+      </td>`;
       LIST_COLUMNS.forEach(c => {
         const f = FIELD_BY_KEY[c.key];
         html += `<td class="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">${escapeHtml(formatDisplay(rec[c.key], f))}</td>`;
       });
-      html += `<td class="px-4 py-3 text-right whitespace-nowrap">
-        <button class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-3" data-edit="${idx}">编辑</button>
-        <button class="text-red-500 hover:text-red-700 text-sm font-medium" data-del="${idx}">删除</button>
-      </td>`;
       tr.innerHTML = html;
       tbody.appendChild(tr);
     });

@@ -35,19 +35,8 @@
         <button id="btn-add" type="button" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow-sm">+ 新增记录</button>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-left">
-          <thead>
-            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-              <th class="px-4 py-3 font-medium">患者编号</th>
-              <th class="px-4 py-3 font-medium">年龄</th>
-              <th class="px-4 py-3 font-medium">性别</th>
-              <th class="px-4 py-3 font-medium">发病时间</th>
-              <th class="px-4 py-3 font-medium">到达时间</th>
-              <th class="px-4 py-3 font-medium">卒中类型</th>
-              <th class="px-4 py-3 font-medium">出院去向</th>
-              <th class="px-4 py-3 font-medium">出院日期</th>
-              <th class="px-4 py-3 font-medium text-right">操作</th>
-            </tr>
+        <table class="w-full text-left relative">
+          <thead id="list-thead">
           </thead>
           <tbody id="list-tbody"></tbody>
         </table>
