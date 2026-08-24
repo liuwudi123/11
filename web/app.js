@@ -118,7 +118,10 @@ function formatDateTime(value) {
   const [date, time] = value.split('T');
   if (!date || !time) return value;
   const [y, m, d] = date.split('-').map(Number);
-  return `${y}/${m}/${d}T${time}:00`;
+  // 控件可能返回 "14:30"（无秒）或 "14:30:45"（有秒），统一补全到 3 段
+  const parts = time.split(':');
+  while (parts.length < 3) parts.push('00');
+  return `${y}/${m}/${d}T${parts.slice(0, 3).join(':')}`;
 }
 function formatDisplay(value, field) {
   if (!value) return '';
@@ -232,6 +235,8 @@ function createEditorField(f, value) {
   } else if (f.type === 'datetime') {
     input = document.createElement('input');
     input.type = 'datetime-local';
+    // step=1 让控件支持秒（默认 step=60 只有分钟精度）
+    input.step = '1';
     input.className = 'w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
   } else {
     input = document.createElement('input');
