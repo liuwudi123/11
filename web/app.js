@@ -214,17 +214,17 @@ function openEditor(index) {
   updateEditorVisibility(data);
 }
 
-// 影像时间组件：日期+时分用原生控件，秒用普通 <select> 下拉(0-59)，全平台稳定
+// 影像时间组件：年月日时分用原生 datetime-local，秒用普通 <select> 下拉(0-59)
 function createSecondPicker() {
   let sec = 0;
   const el = document.createElement('div');
   el.className = 'flex-1 flex gap-2';
 
-  const timeInput = document.createElement('input');
-  timeInput.type = 'time';
-  timeInput.step = '1';
-  timeInput.dataset.part = 'time';
-  timeInput.className = 'w-2/3 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+  const dtInput = document.createElement('input');
+  dtInput.type = 'datetime-local';
+  dtInput.step = '1';
+  dtInput.dataset.part = 'datetime';
+  dtInput.className = 'w-2/3 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
 
   const secSelect = document.createElement('select');
   secSelect.dataset.part = 'sec';
@@ -237,27 +237,27 @@ function createSecondPicker() {
   }
   secSelect.value = '0';
 
-  el.appendChild(timeInput);
+  el.appendChild(dtInput);
   el.appendChild(secSelect);
 
   return {
     el,
-    _timeInput: timeInput,
+    _timeInput: dtInput,
     getValue: () => {
-      const tm = timeInput.value || '00:00';
-      return `${tm}:${String(sec).padStart(2, '0')}`;
+      const dt = dtInput.value || '2000-01-01T00:00';
+      return `${dt}:${String(sec).padStart(2, '0')}`;
     },
     setValue: (v) => {
-      if (!v) { timeInput.value = ''; sec = 0; secSelect.value = '0'; return; }
-      const parts = v.split(':').map(Number);
-      timeInput.value = `${String(parts[0]||0).padStart(2,'0')}:${String(parts[1]||0).padStart(2,'0')}`;
-      sec = parts[2] || 0;
+      if (!v) { dtInput.value = ''; sec = 0; secSelect.value = '0'; return; }
+      const [d, t] = String(v).split('T');
+      dtInput.value = t ? `${d}T${t.split(':').slice(0, 2).join(':')}` : '';
+      sec = Number((v.split(':')[2]) || 0);
       secSelect.value = String(sec);
     },
     _onChange: (cb) => {
       el._changeCb = cb;
-      timeInput.addEventListener('change', cb);
-      timeInput.addEventListener('input', cb);
+      dtInput.addEventListener('change', cb);
+      dtInput.addEventListener('input', cb);
       secSelect.addEventListener('change', () => { sec = Number(secSelect.value); if (cb) cb(); });
     }
   };
@@ -295,16 +295,10 @@ function createEditorField(f, value) {
     if (f.key === 'brain_imaging_ts') {
       // 仅影像时间需精确到秒。iOS 的 time 控件不支持秒，用自定义滚轮(时/分/秒)
       const wrap = document.createElement('div');
-      wrap.className = 'flex gap-2';
-      dateInput = document.createElement('input');
-      dateInput.type = 'date';
-      dateInput.dataset.part = 'date';
-      dateInput.className = 'w-1/2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
       const picker = createSecondPicker();
       timeInput = picker.el;
       timeInput.dataset.part = 'time';
       timeInput.dataset.timePicker = '1';
-      wrap.appendChild(dateInput);
       wrap.appendChild(timeInput);
       input = wrap;
       // 把 setValue/getValue 挂到 timeInput 上，方便初始化与取值
@@ -323,14 +317,8 @@ function createEditorField(f, value) {
     input.className = 'w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
   }
   if (f.type === 'datetime' && f.key === 'brain_imaging_ts') {
-    // 把存储值 "YYYY-MM-DDTHH:MM:SS" 拆进两个控件
-    if (value) {
-      const [dt, tm] = String(value).split('T');
-      dateInput.value = dt || '';
-      if (timeInput._setValue) timeInput._setValue(tm || '');
-    }
-    dateInput.addEventListener('change', onFieldChange);
-    dateInput.addEventListener('input', onFieldChange);
+    // datetime-local(到分) + 秒下拉，整体用一个值初始化
+    if (value && timeInput._setValue) timeInput._setValue(value);
     if (timeInput._onChange) timeInput._onChange(onFieldChange);
     wrapper.appendChild(input);
   } else if (f.type === 'datetime') {
@@ -360,12 +348,9 @@ function collectEditorData() {
     const k = w.dataset.key;
     const f = FIELD_BY_KEY[k];
     if (f && f.type === 'datetime' && k === 'brain_imaging_ts') {
-      const dateEl = w.querySelector('input[data-part="date"]');
       const pickerEl = w.querySelector('[data-time-picker]');
-      const dt = dateEl ? dateEl.value : '';
-      let tm = pickerEl && pickerEl._getValue ? pickerEl._getValue() : '';
-      if (tm && tm.split(':').length === 2) tm += ':00'; // 补秒
-      d[k] = (dt && tm) ? `${dt}T${tm}` : (dt || tm || '');
+      const v = pickerEl && pickerEl._getValue ? pickerEl._getValue() : '';
+      d[k] = v;
     } else {
       const el = w.querySelector('input, select');
       d[k] = el ? el.value : '';
