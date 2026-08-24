@@ -214,6 +214,81 @@ function openEditor(index) {
   updateEditorVisibility(data);
 }
 
+// 自定义时间滚轮选择器（时/分/秒），iOS 上也能精确到秒，无第三方依赖
+function createSecondPicker() {
+  let current = { h: 0, m: 0, s: 0 };
+  const el = document.createElement('div');
+  el.className = 'relative w-1/2';
+
+  const display = document.createElement('input');
+  display.type = 'text';
+  display.readOnly = true;
+  display.placeholder = 'HH:MM:SS';
+  display.className = 'w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+  const panel = document.createElement('div');
+  panel.className = 'hidden absolute z-50 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-56';
+  panel.style.touchAction = 'none';
+
+  function makeColumn(max, onChange) {
+    const col = document.createElement('div');
+    col.className = 'flex-1 h-32 overflow-y-auto text-center text-sm snap-y';
+    col.style.scrollSnapType = 'y mandatory';
+    for (let i = 0; i <= max; i++) {
+      const item = document.createElement('div');
+      item.className = 'h-8 flex items-center justify-center snap-center rounded';
+      item.textContent = String(i).padStart(2, '0');
+      item.dataset.val = i;
+      col.appendChild(item);
+    }
+    col.addEventListener('scroll', () => {
+      const idx = Math.round(col.scrollTop / 32);
+      onChange(Math.min(max, Math.max(0, idx)));
+    });
+    return col;
+  }
+
+  const hCol = makeColumn(23, v => current.h = v);
+  const mCol = makeColumn(59, v => current.m = v);
+  const sCol = makeColumn(59, v => current.s = v);
+
+  const cols = document.createElement('div');
+  cols.className = 'flex gap-1';
+  cols.appendChild(hCol); cols.appendChild(mCol); cols.appendChild(sCol);
+  panel.appendChild(cols);
+
+  const done = document.createElement('button');
+  done.type = 'button';
+  done.textContent = '完成';
+  done.className = 'mt-2 w-full px-3 py-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg';
+  panel.appendChild(done);
+
+  el.appendChild(display);
+  el.appendChild(panel);
+
+  function syncDisplay() {
+    display.value = `${String(current.h).padStart(2,'0')}:${String(current.m).padStart(2,'0')}:${String(current.s).padStart(2,'0')}`;
+  }
+  function scrollCol(col, val) { col.scrollTop = val * 32; }
+
+  display.addEventListener('focus', () => panel.classList.remove('hidden'));
+  display.addEventListener('click', () => panel.classList.remove('hidden'));
+  done.addEventListener('click', () => { syncDisplay(); panel.classList.add('hidden'); if (el._changeCb) el._changeCb(); });
+
+  return {
+    el,
+    getValue: () => display.value,
+    setValue: (v) => {
+      if (!v) { current = { h:0, m:0, s:0 }; syncDisplay(); return; }
+      const parts = v.split(':').map(Number);
+      current = { h: parts[0]||0, m: parts[1]||0, s: parts[2]||0 };
+      scrollCol(hCol, current.h); scrollCol(mCol, current.m); scrollCol(sCol, current.s);
+      syncDisplay();
+    },
+    _onChange: (cb) => { el._changeCb = cb; }
+  };
+}
+
 function createEditorField(f, value) {
   const wrapper = document.createElement('div');
   wrapper.className = 'editor-field';
@@ -244,22 +319,22 @@ function createEditorField(f, value) {
     if (f.max !== undefined) input.max = f.max;
   } else if (f.type === 'datetime') {
     if (f.key === 'brain_imaging_ts') {
-      // 仅影像时间需精确到秒。iOS 的 time 控件不支持秒，改用文本框手输，全平台一致
+      // 仅影像时间需精确到秒。iOS 的 time 控件不支持秒，用自定义滚轮(时/分/秒)
       const wrap = document.createElement('div');
       wrap.className = 'flex gap-2';
       dateInput = document.createElement('input');
       dateInput.type = 'date';
       dateInput.dataset.part = 'date';
       dateInput.className = 'w-1/2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
-      timeInput = document.createElement('input');
-      timeInput.type = 'text';
-      timeInput.inputMode = 'numeric';
-      timeInput.placeholder = 'HH:MM:SS';
+      const picker = createSecondPicker();
+      timeInput = picker.el;
       timeInput.dataset.part = 'time';
-      timeInput.className = 'w-1/2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
       wrap.appendChild(dateInput);
       wrap.appendChild(timeInput);
       input = wrap;
+      // 把 setValue 挂到 timeInput 上，方便初始化
+      timeInput._setValue = picker.setValue;
+      timeInput._getValue = picker.getValue;
     } else {
       // 其余时间字段恢复 datetime-local（电脑可选秒，手机到分钟，足够用）
       input = document.createElement('input');
@@ -277,12 +352,11 @@ function createEditorField(f, value) {
     if (value) {
       const [dt, tm] = String(value).split('T');
       dateInput.value = dt || '';
-      timeInput.value = tm || '';
+      if (timeInput._setValue) timeInput._setValue(tm || '');
     }
-    [dateInput, timeInput].forEach(el => {
-      el.addEventListener('change', onFieldChange);
-      el.addEventListener('input', onFieldChange);
-    });
+    dateInput.addEventListener('change', onFieldChange);
+    dateInput.addEventListener('input', onFieldChange);
+    if (timeInput._onChange) timeInput._onChange(onFieldChange);
     wrapper.appendChild(input);
   } else if (f.type === 'datetime') {
     input.dataset.key = f.key;
@@ -314,7 +388,7 @@ function collectEditorData() {
       const dateEl = w.querySelector('input[data-part="date"]');
       const timeEl = w.querySelector('input[data-part="time"]');
       const dt = dateEl ? dateEl.value : '';
-      let tm = timeEl ? timeEl.value : '';
+      let tm = timeEl && timeEl._getValue ? timeEl._getValue() : (timeEl ? timeEl.value : '');
       if (tm && tm.split(':').length === 2) tm += ':00'; // 补秒
       d[k] = (dt && tm) ? `${dt}T${tm}` : (dt || tm || '');
     } else {
