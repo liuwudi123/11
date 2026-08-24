@@ -282,6 +282,7 @@ function createEditorField(f, value) {
       el.addEventListener('change', onFieldChange);
       el.addEventListener('input', onFieldChange);
     });
+    wrapper.appendChild(input);
   } else if (f.type === 'datetime') {
     input.dataset.key = f.key;
     input.value = value ?? '';
