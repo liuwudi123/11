@@ -244,8 +244,9 @@ function createSecondPicker() {
     el,
     _timeInput: dtInput,
     getValue: () => {
-      const dt = dtInput.value || '2000-01-01T00:00';
-      return `${dt}:${String(sec).padStart(2, '0')}`;
+      if (!dtInput.value) return '';
+      const ss = secSelect.value.padStart(2, '0');
+      return `${dtInput.value}:${ss}`;
     },
     setValue: (v) => {
       if (!v) { dtInput.value = ''; sec = 0; secSelect.value = '0'; return; }
