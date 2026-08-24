@@ -214,15 +214,11 @@ function openEditor(index) {
   updateEditorVisibility(data);
 }
 
-// 影像时间组件：日期用原生 date，时分用原生 time(到分)，秒用自定义滚轮(0-59)
-// iOS 上 time 控件不显秒，所以把"秒"单独拆成滚轮，年月日时分仍用系统原生体验
+// 影像时间组件：日期+时分用原生控件，秒用普通 <select> 下拉(0-59)，全平台稳定
 function createSecondPicker() {
   let sec = 0;
   const el = document.createElement('div');
-  el.className = 'flex-1 flex flex-col gap-1';
-
-  const row = document.createElement('div');
-  row.className = 'flex gap-2';
+  el.className = 'flex-1 flex gap-2';
 
   const timeInput = document.createElement('input');
   timeInput.type = 'time';
@@ -230,70 +226,19 @@ function createSecondPicker() {
   timeInput.dataset.part = 'time';
   timeInput.className = 'w-2/3 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
 
-  const secBtn = document.createElement('button');
-  secBtn.type = 'button';
-  secBtn.dataset.part = 'sec';
-  secBtn.className = 'w-1/3 rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500';
-  secBtn.textContent = '秒 00';
-
-  row.appendChild(timeInput);
-  row.appendChild(secBtn);
-  el.appendChild(row);
-
-  // 秒滚轮面板
-  const panel = document.createElement('div');
-  panel.className = 'hidden relative mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-2 w-24 max-h-40 overflow-y-auto snap-y';
-  panel.style.scrollSnapType = 'y mandatory';
-  panel.style.touchAction = 'none';
-
-  // 中间固定高亮条，指示当前选中项
-  const indicator = document.createElement('div');
-  indicator.className = 'pointer-events-none absolute left-2 right-2 rounded-lg bg-blue-100 border border-blue-300';
-  indicator.style.height = '32px';
-  indicator.style.top = '64px'; // 面板高160，居中(160-32)/2
-  panel.appendChild(indicator);
-
-  const items = [];
+  const secSelect = document.createElement('select');
+  secSelect.dataset.part = 'sec';
+  secSelect.className = 'w-1/3 rounded-lg border border-slate-300 px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500';
   for (let i = 0; i <= 59; i++) {
-    const item = document.createElement('div');
-    item.className = 'h-8 flex items-center justify-center snap-center rounded text-sm cursor-pointer';
-    item.textContent = String(i).padStart(2, '0');
-    item.dataset.val = i;
-    item.addEventListener('click', () => {
-      sec = i;
-      secBtn.textContent = '秒 ' + String(i).padStart(2, '0');
-      highlight();
-      panel.classList.add('hidden');
-      if (el._changeCb) el._changeCb();
-    });
-    panel.appendChild(item);
-    items.push(item);
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = String(i).padStart(2, '0');
+    secSelect.appendChild(opt);
   }
+  secSelect.value = '0';
 
-  function highlight() {
-    items.forEach((it, idx) => {
-      it.classList.toggle('font-semibold', idx === sec);
-      it.classList.toggle('text-blue-600', idx === sec);
-    });
-  }
-  function centerTo(secVal) {
-    panel.scrollTop = secVal * 32 - 64; // 让选中项对齐中间高亮条
-    highlight();
-  }
-  panel.addEventListener('scroll', () => {
-    const idx = Math.round(panel.scrollTop / 32);
-    sec = Math.min(59, Math.max(0, idx));
-    secBtn.textContent = '秒 ' + String(sec).padStart(2, '0');
-    highlight();
-  });
-  el.appendChild(panel);
-
-  secBtn.addEventListener('click', () => {
-    panel.classList.toggle('hidden');
-    if (!panel.classList.contains('hidden')) {
-      centerTo(sec); // 展开时把当前秒滚到中间高亮条位置
-    }
-  });
+  el.appendChild(timeInput);
+  el.appendChild(secSelect);
 
   return {
     el,
@@ -303,14 +248,18 @@ function createSecondPicker() {
       return `${tm}:${String(sec).padStart(2, '0')}`;
     },
     setValue: (v) => {
-      if (!v) { timeInput.value = ''; sec = 0; secBtn.textContent = '秒 00'; highlight(); return; }
+      if (!v) { timeInput.value = ''; sec = 0; secSelect.value = '0'; return; }
       const parts = v.split(':').map(Number);
       timeInput.value = `${String(parts[0]||0).padStart(2,'0')}:${String(parts[1]||0).padStart(2,'0')}`;
       sec = parts[2] || 0;
-      secBtn.textContent = '秒 ' + String(sec).padStart(2, '0');
-      highlight();
+      secSelect.value = String(sec);
     },
-    _onChange: (cb) => { el._changeCb = cb; timeInput.addEventListener('change', cb); timeInput.addEventListener('input', cb); }
+    _onChange: (cb) => {
+      el._changeCb = cb;
+      timeInput.addEventListener('change', cb);
+      timeInput.addEventListener('input', cb);
+      secSelect.addEventListener('change', () => { sec = Number(secSelect.value); if (cb) cb(); });
+    }
   };
 }
 
