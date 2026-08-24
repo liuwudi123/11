@@ -244,7 +244,7 @@ function createEditorField(f, value) {
     if (f.max !== undefined) input.max = f.max;
   } else if (f.type === 'datetime') {
     if (f.key === 'brain_imaging_ts') {
-      // 仅影像时间需精确到秒，拆成「日期」+「时间(含秒)」两个独立控件，手机也能选秒
+      // 仅影像时间需精确到秒。iOS 的 time 控件不支持秒，改用文本框手输，全平台一致
       const wrap = document.createElement('div');
       wrap.className = 'flex gap-2';
       dateInput = document.createElement('input');
@@ -252,8 +252,9 @@ function createEditorField(f, value) {
       dateInput.dataset.part = 'date';
       dateInput.className = 'w-1/2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
       timeInput = document.createElement('input');
-      timeInput.type = 'time';
-      timeInput.step = '1'; // 启用秒
+      timeInput.type = 'text';
+      timeInput.inputMode = 'numeric';
+      timeInput.placeholder = 'HH:MM:SS';
       timeInput.dataset.part = 'time';
       timeInput.className = 'w-1/2 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
       wrap.appendChild(dateInput);
