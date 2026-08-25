@@ -107,6 +107,132 @@ function saveRecords() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
 }
 
+// ===== 导入 Excel（按模板列号读取，按 case_id 去重后追加） =====
+function formatDateToLocal(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function excelSerialToDate(serial) {
+  // Excel 1900 日期系统：1900-01-01 = 1（含 1900-02-29 假日期）
+  // 1970-01-01 = 25569。用 1899-12-30 作基准可避开闰年错误
+  return new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+}
+
+function parseExcelDateTime(v) {
+  // Date 对象
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return '';
+    return formatDateToLocal(v);
+  }
+  // 数字（Excel 日期序列号）
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    return formatDateToLocal(excelSerialToDate(v));
+  }
+  // 字符串
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return '';
+    // 模板格式 yyyy/m/d T HH:MM:SS（也兼容空格分隔的"yyyy/m/d HH:MM:SS"）
+    // 1) / → -，空白 → T
+    let iso = s.replace(/\//g, '-').replace(/\s+/g, 'T');
+    // 2) 单数字的月/日补零："2025-8-31T14:30:00" → "2025-08-31T14:30:00"
+    iso = iso.replace(/T(\d{1,2}):(\d{1,2})(:(\d{1,2}))?$/, (_, h, m, _c, s2) =>
+      `T${h.padStart(2, '0')}:${m.padStart(2, '0')}${s2 !== undefined ? ':' + s2.padStart(2, '0') : ''}`);
+    iso = iso.replace(/^(\d{4})-(\d{1,2})-(\d{1,2})T/, (_, y, mo, d) =>
+      `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}T`);
+    let d = new Date(iso);
+    if (!isNaN(d.getTime())) return formatDateToLocal(d);
+    // 3) 没有秒：补 :00
+    if (/T\d{2}:\d{2}$/.test(iso)) {
+      d = new Date(iso + ':00');
+      if (!isNaN(d.getTime())) return formatDateToLocal(d);
+    }
+    return ''; // 解析失败留空，不留垃圾
+  }
+  return '';
+}
+
+function readCellValue(cell, field) {
+  let v = cell.value;
+  if (v === null || v === undefined || v === '') return '';
+  // 公式：取 result
+  if (typeof v === 'object' && v !== null && !Array.isArray(v) && !(v instanceof Date) && 'result' in v) {
+    v = v.result;
+    if (v === null || v === undefined || v === '') return '';
+  }
+  // 富文本：拼接文本
+  if (typeof v === 'object' && v !== null && !Array.isArray(v) && !(v instanceof Date) && 'richText' in v) {
+    v = (v.richText || []).map(r => r.text || '').join('');
+  }
+  if (v === null || v === undefined || v === '') return '';
+
+  if (field && field.type === 'datetime') return parseExcelDateTime(v);
+  if (field && field.type === 'number') {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'boolean') return v ? 1 : 0; // Excel 复选框勾选 = true
+    const s = String(v).trim();
+    if (!s) return ''; // 空格/空字符串 → 留空，不要 0
+    const n = Number(s);
+    return Number.isFinite(n) ? n : '';
+  }
+  if (field && field.type === 'select') {
+    return String(v).trim(); // 去掉首尾空格，避免 "male " 不匹配 "male"
+  }
+  if (v instanceof Date) return formatDateToLocal(v);
+  return String(v);
+}
+
+async function importExcel(file) {
+  let wb;
+  try {
+    const buffer = await file.arrayBuffer();
+    wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer);
+  } catch (err) {
+    showToast('Excel 解析失败：' + err.message, true);
+    return;
+  }
+  const ws = wb.getWorksheet('template') || wb.worksheets[0];
+  if (!ws) {
+    showToast('未找到工作表', true);
+    return;
+  }
+
+  // 数据从第 3 行开始，逐行按 FIELDS.col 取单元格
+  const parsed = [];
+  for (let row = 3; row <= ws.rowCount; row++) {
+    const rec = {};
+    FIELDS.forEach(f => {
+      rec[f.key] = readCellValue(ws.getCell(row, f.col), f);
+    });
+    // 以 case_id 是否非空作为"该行有数据"的判断
+    if (rec.case_id) parsed.push(rec);
+  }
+  if (parsed.length === 0) {
+    showToast('Excel 中未识别到任何记录（数据从第 3 行开始）', true);
+    return;
+  }
+
+  const existingIds = new Set(records.map(r => r.case_id).filter(Boolean));
+  const dupCount = parsed.filter(r => existingIds.has(r.case_id)).length;
+  const newCount = parsed.length - dupCount;
+  if (newCount === 0) {
+    showToast(`${parsed.length} 条全部已存在，未导入`, true);
+    return;
+  }
+  const msg = dupCount > 0
+    ? `检测到 ${dupCount} 条 case_id 已存在，将跳过。\n将导入 ${newCount} 条新记录，是否继续？`
+    : `将导入 ${newCount} 条记录，是否继续？`;
+  if (!confirm(msg)) return;
+
+  const toAdd = parsed.filter(r => !existingIds.has(r.case_id));
+  records.push(...toAdd);
+  saveRecords();
+  renderList();
+  showToast(`已导入 ${toAdd.length} 条${dupCount > 0 ? `（跳过 ${dupCount} 条重复）` : ''}`);
+}
+
 // ===== 预导入 JSON（从同目录 patients_31_50.json 自动加载） =====
 async function importJSON() {
   let text;
@@ -498,6 +624,14 @@ function bindEvents() {
   document.getElementById('btn-add').addEventListener('click', () => openEditor(null));
   document.getElementById('btn-export').addEventListener('click', exportExcel);
   document.getElementById('btn-import').addEventListener('click', importJSON);
+  document.getElementById('btn-import-excel').addEventListener('click', () => {
+    document.getElementById('file-import-excel').click();
+  });
+  document.getElementById('file-import-excel').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) importExcel(file);
+    e.target.value = '';
+  });
   document.getElementById('btn-clear-all').addEventListener('click', () => {
     if (confirm('确定清空所有记录？此操作不可恢复。')) {
       records = [];
