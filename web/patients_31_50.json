@@ -1,0 +1,22 @@
+[
+  { "case_id": "8001276208", "age": 58, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-09-11T00:00:00" },
+  { "case_id": "8001253400", "age": 73, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-08-04T00:00:00" },
+  { "case_id": "8001254393", "age": 53, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-08-04T00:00:00" },
+  { "case_id": "8001236649", "age": 55, "sex": "female", "discharge_destination": "home", "discharge_date": "2025-07-08T00:00:00" },
+  { "case_id": "8001270794", "age": 56, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-08-31T00:00:00" },
+  { "case_id": "8001249081", "age": 63, "sex": "female", "discharge_destination": "home", "discharge_date": "2025-07-28T00:00:00" },
+  { "case_id": "8001256538", "age": 78, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-08-11T00:00:00" },
+  { "case_id": "8001263788", "age": 51, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-08-19T00:00:00" },
+  { "case_id": "8001268358", "age": 79, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-09-01T00:00:00" },
+  { "case_id": "8001271471", "age": 59, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-09-04T00:00:00" },
+  { "case_id": "8001274727", "age": 50, "sex": "female", "discharge_destination": "home", "discharge_date": "2025-09-07T00:00:00" },
+  { "case_id": "8001289817", "age": 59, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-10-11T00:00:00" },
+  { "case_id": "8001300064", "age": 31, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-10-28T00:00:00" },
+  { "case_id": "8001296776", "age": 70, "sex": "female", "discharge_destination": "home", "discharge_date": "2025-10-21T00:00:00" },
+  { "case_id": "8001296160", "age": 67, "sex": "female", "discharge_destination": "home", "discharge_date": "2025-10-22T00:00:00" },
+  { "case_id": "8001290860", "age": 68, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-10-16T00:00:00" },
+  { "case_id": "8001282686", "age": 75, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-09-23T00:00:00" },
+  { "case_id": "8001284732", "age": 86, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-09-28T00:00:00" },
+  { "case_id": "8001279626", "age": 55, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-09-19T00:00:00" },
+  { "case_id": "8001278805", "age": 55, "sex": "male",   "discharge_destination": "home", "discharge_date": "2025-09-15T00:00:00" }
+]

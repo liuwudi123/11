@@ -107,6 +107,51 @@ function saveRecords() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
 }
 
+// ===== 预导入 JSON（从同目录 patients_31_50.json 自动加载） =====
+async function importJSON() {
+  let text;
+  try {
+    const res = await fetch('patients_31_50.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    text = await res.text();
+  } catch (err) {
+    showToast('加载预导入文件失败：' + err.message + '（请确认 web/patients_31_50.json 已部署）', true);
+    return;
+  }
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    showToast('JSON 解析失败：' + err.message, true);
+    return;
+  }
+  if (!Array.isArray(data)) {
+    showToast('JSON 格式错误：根节点必须是数组', true);
+    return;
+  }
+  const valid = data.filter(r => r && typeof r === 'object');
+  if (valid.length === 0) {
+    showToast('JSON 中没有可识别的记录', true);
+    return;
+  }
+  const existingIds = new Set(records.map(r => r.case_id).filter(Boolean));
+  const dupCount = valid.filter(r => existingIds.has(r.case_id)).length;
+  const newCount = valid.length - dupCount;
+  if (newCount === 0) {
+    showToast(`${valid.length} 条全部已存在，未导入`, true);
+    return;
+  }
+  const msg = dupCount > 0
+    ? `检测到 ${dupCount} 条 case_id 已存在，将跳过。\n将导入 ${newCount} 条新记录，是否继续？`
+    : `将导入 ${newCount} 条记录，是否继续？`;
+  if (!confirm(msg)) return;
+  const toAdd = valid.filter(r => !existingIds.has(r.case_id));
+  records.push(...toAdd);
+  saveRecords();
+  renderList();
+  showToast(`已导入 ${toAdd.length} 条${dupCount > 0 ? `（跳过 ${dupCount} 条重复）` : ''}`);
+}
+
 // ===== 工具 =====
 function emptyRecord() {
   const r = {};
@@ -452,6 +497,7 @@ function showToast(msg, isError = false) {
 function bindEvents() {
   document.getElementById('btn-add').addEventListener('click', () => openEditor(null));
   document.getElementById('btn-export').addEventListener('click', exportExcel);
+  document.getElementById('btn-import').addEventListener('click', importJSON);
   document.getElementById('btn-clear-all').addEventListener('click', () => {
     if (confirm('确定清空所有记录？此操作不可恢复。')) {
       records = [];
